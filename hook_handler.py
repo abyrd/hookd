@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 
-import time, json, sys
+import time, json, sys, cgi
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 8888
@@ -9,6 +9,10 @@ REPO = 'openplans/OpenTripPlanner'
 DAEMON = False
 
 # check slowness with curl -v
+
+# github sends urlencoded form in the body
+# with payload={json}
+# i.e. content-type is application/x-www-form-urlencoded
 
 class HookHandler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -21,7 +25,8 @@ class HookHandler(BaseHTTPRequestHandler):
             self.end_headers()
             # client has now received 100, will send body
             body = self.rfile.read(length)
-            j = json.loads(body)
+            postvars = cgi.parse_qs(body)
+            j = json.loads(postvars['payload'])
             commit = j['after']
             print 'received notification from Github of commit', commit
             self.wfile.write('thank you for your patronage.\n')
