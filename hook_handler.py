@@ -19,6 +19,8 @@ class HookHandler(BaseHTTPRequestHandler):
         try:
             # time.sleep(2) # checked, requests are queued and handled sequentially
             length = int(self.headers.getheader('content-length'))
+            ctype = self.headers.getheader('content-type')
+            print ctype
             print 'received message header indicating message of length', length
             # proper clients (like curl) wait for 100 to send POST content to ensure that request is accepted
             self.send_response(100) 
