@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
-
-import time, json, sys, cgi
+import time, json, sys, cgi, traceback
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 8888
@@ -28,13 +27,13 @@ class HookHandler(BaseHTTPRequestHandler):
             # client has now received 100, will send body
             body = self.rfile.read(length)
             postvars = cgi.parse_qs(body)
-            j = json.loads(postvars['payload'])
+            j = json.loads(postvars['payload'][0])
             commit = j['after']
             print 'received notification from Github of commit', commit
             self.wfile.write('thank you for your patronage.\n')
         except Exception as e:
             self.wfile.write('i failed to understand your message.\n')
-            print sys.exc_info()
+            traceback.print_exc()
     
 def main():
     try:
