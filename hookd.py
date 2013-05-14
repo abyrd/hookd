@@ -44,13 +44,13 @@ class WorkerThread (threading.Thread) :
     def __init__ (self, thread_id) :
         threading.Thread.__init__(self)
         self.threadID = thread_id
-        self.name = 'thread %d' % thread_id
-        self.dir = os.path.join(BASE_DIR, 'thread_%d_workspace' % self.threadID)
+        self.name = 'worker%d' % thread_id
+        self.dir = os.path.join(BASE_DIR, '%s_workspace' % self.name)
         # note: cannot change current directory per thread. multiprocessing?
         try :
             os.chdir (self.dir)
         except :
-            info ('thread %s workspace directory does not exist, creating %s' % (self.threadID, self.dir))
+            info ('workspace directory does not exist, creating %s' % self.dir)
             os.mkdir (self.dir)
             os.chdir (self.dir)
     def run (self) :
@@ -58,32 +58,36 @@ class WorkerThread (threading.Thread) :
         while True :
             qlock.acquire()
             if q.empty():
-                debug ('%s going to sleep' % self.name)
+                # debug ('%s going to sleep' % self.name)
                 qlock.wait()
-            info ('%s awake' % self.name)
+            # info ('%s awake' % self.name)
             if shutdown.is_set() :
                 debug ('%s exiting' % self.name)
                 qlock.release()
                 break
             else :
                 work_unit = q.get()
-                info ('thread %d got %s' % (self.threadID, work_unit))
+                info ('thread %d got work unit %s' % (self.threadID, work_unit))
                 qlock.release()
                 self.do_work (work_unit)
                 # print self.name, 'got', commit_sha1
-    def call (self, cmd, cwd) :
+    def call (self, cmd, cwd=None) :
+        if cwd is None :
+            cwd = self.repo_dir
+        if not isinstance(cmd, list) :
+            cmd = cmd.split()
         info ("calling '%s'" % cmd)
-        result = subprocess.call( cmd.split(), stdout=self.log, stderr=self.log, cwd=cwd )
+        result = subprocess.call( cmd, stdout=self.log, stderr=self.log, cwd=cwd )
         info ("result of '%s' was %s" % (cmd, 'OK' if result == 0 else 'FAIL'))
+        #if result != 0 :
+        #    throw X
     def do_work (self, work_unit) :
         repo_name, repo_url, head_commit = work_unit
-        repo_dir = os.path.join(self.dir, repo_name)
+        self.repo_dir = os.path.join(self.dir, repo_name)
         try :
-            os.chdir (repo_dir)
+            os.chdir (self.repo_dir)
         except :
-            info ('repository does not exist, cloning')
-            result = subprocess.call( ['git', 'clone', repo_url, repo_name], stdout=sys.stdout, cwd=self.dir)
-            info ('result of clone operation was %d' % result)
+            self.call (['git', 'clone', repo_url, repo_name], cwd=self.dir)
         self.log = open (os.path.join(LOG_DIR, 'build_log_' + head_commit), 'w')
         self.call ('git fetch', repo_dir)
         self.call ('git clean -f', repo_dir)
