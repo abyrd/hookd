@@ -40,6 +40,11 @@ def debug (msg) :
     syslog.syslog(syslog.LOG_DEBUG, msg)
     log_lock.release()
 
+class FailedCall (Exception) :
+    def __init__ (self, code) :
+        self.code = code
+        self.message = code
+
 class WorkerThread (threading.Thread) :
     def __init__ (self, thread_id) :
         threading.Thread.__init__(self)
@@ -70,7 +75,6 @@ class WorkerThread (threading.Thread) :
                 info ('%s: got work unit %s' % (self.name, work_unit))
                 qlock.release()
                 self.do_work (work_unit)
-                # print self.name, 'got', commit_sha1
     def call (self, cmd, cwd=None) :
         if cwd is None :
             cwd = self.repo_dir
@@ -79,20 +83,24 @@ class WorkerThread (threading.Thread) :
         info ("%s: calling '%s'" % (self.name, cmd))
         result = subprocess.call( cmd, stdout=self.log, stderr=self.log, cwd=cwd )
         info ("%s: result of '%s' was %s" % (self.name, cmd, 'OK' if result == 0 else 'FAIL'))
-        #if result != 0 :
-        #    throw X
+        if result != 0 :
+            raise FailedCall(result)
     def do_work (self, work_unit) :
         repo_name, repo_url, head_commit = work_unit
         self.repo_dir = os.path.join(self.dir, repo_name)
         self.log = open (os.path.join(LOG_DIR, '%s_build_%s_%s.log' % (self.name, repo_name, head_commit)), 'w')
         try :
-            os.chdir (self.repo_dir)
-        except :
-            self.call (['git', 'clone', repo_url, repo_name], cwd=self.dir)
-        self.call ('git fetch')
-        self.call ('git clean -f')
-        self.call ('git checkout ' + head_commit)
-        self.call( 'mvn clean package')
+            try :
+                os.chdir (self.repo_dir)
+                info ('%s: repository directory %s already exists' % (self.name, self.repo_dir))
+            except :
+                self.call (['git', 'clone', repo_url, repo_name], cwd=self.dir)
+            self.call ('git fetch')
+            self.call ('git clean -f')
+            self.call ('git checkout ' + head_commit)
+            self.call( 'mvn clean package')
+        except FailedCall :
+            info ('%s: a build step failed, aborting.' % self.name)
         self.log.close()
         
 # from https://github.com/abyrd/hooktest/settings/hooks
