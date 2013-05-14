@@ -78,7 +78,7 @@ class WorkerThread (threading.Thread) :
             info ('repository does not exist, cloning')
             result = subprocess.call( ['git', 'clone', repo_url, repo_name], stdout=sys.stdout, cwd=self.dir)
             info ('result of clone operation was %d' % result)
-        self.log = open (os.join(LOG_DIR, 'build_log_' + head_commit), 'w')
+        self.log = open (os.path.join(LOG_DIR, 'build_log_' + head_commit), 'w')
         self.call ('git fetch', repo_dir)
         self.call ('git clean -f', repo_dir)
         self.call ('git checkout ' + head_commit, repo_dir)
