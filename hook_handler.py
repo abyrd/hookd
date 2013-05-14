@@ -5,12 +5,9 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import Queue, threading, syslog, subprocess, os
 
 PORT = 8888
-GITHUB_URL = 'http://github.com/'
-ACCOUNT = 'openplans'
-REPO = 'OpenTripPlanner'
 BASE_DIR = '/home/abyrd/'
 DAEMON = False
-N_WORKER_THREADS = 3
+N_WORKER_THREADS = 2
 WORK_SCRIPT = ''
 LOG_IDENT = 'otphook'
 
