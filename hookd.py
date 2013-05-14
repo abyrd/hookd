@@ -10,12 +10,12 @@ import daemon, daemon.pidlockfile, signal
 # NOTE github has a "test hook" button, see https://github.com/abyrd/hooktest/settings/hooks
 
 PORT = 8888
-BASE_DIR = '/var/opt/githook/'
+BASE_DIR = '/var/opt/hookd/'
 WORK_DIR = BASE_DIR
 LOG_DIR = BASE_DIR
 N_WORKER_THREADS = 2
 WORK_SCRIPT = ''
-LOG_IDENT = 'githook'
+LOG_IDENT = 'hookd'
 
 # global state used by all threads
 # http://docs.python.org/2/library/threading.html#module-threading (Condition/Event Objects)
