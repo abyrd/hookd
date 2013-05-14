@@ -24,6 +24,12 @@ q = Queue.Queue() # unbounded queue
 qlock = threading.Condition()
 log_lock = threading.Lock()
 
+def error (msg) :
+    log_lock.acquire()
+    syslog.syslog(syslog.LOG_ERR, msg)
+    log_lock.release()
+    terminate(1)
+
 def info (msg) :
     log_lock.acquire()
     syslog.syslog(syslog.LOG_INFO, msg)
@@ -133,8 +139,7 @@ class HookHandler(BaseHTTPRequestHandler):
 daemonize = False
 server=None
 workerThreads = []
-def terminate() :
-    info ('terminate callback')
+def terminate(status=0) :
     if server is not None :
         server.socket.close()
     global q, qlock, shutdown
@@ -147,12 +152,9 @@ def terminate() :
     info ("All worker threads exited, now exiting main thread.")
     log_lock.acquire()
     syslog.closelog()
-    sys.exit(0)
+    sys.exit(status)
 
 def main() :  
-    log_options = (0 if daemonize else syslog.LOG_PERROR) | syslog.LOG_PID 
-    log_facility = syslog.LOG_DAEMON if daemonize else syslog.LOG_USER
-    syslog.openlog(LOG_IDENT, logoption=log_options, facility=log_facility)
     for thread_id in range(N_WORKER_THREADS) :
         thread = WorkerThread(thread_id)
         workerThreads.append(thread)
@@ -175,21 +177,20 @@ def main() :
 def check_dirs () :
     for directory in [BASE_DIR, WORK_DIR, LOG_DIR] :
         if not os.path.isdir(directory) :
-            print "directory '%s' does not exist" % directory
-            exit(1)
+            error ("directory '%s' does not exist" % directory)
         if not os.path.isdir(directory) :
-            print "file '%s' is not a directory" % directory
-            exit(1)
+            error ("file '%s' is not a directory" % directory)
         if not os.access(directory, os.R_OK) :
-            print "cannot read directory %'s'" % directory
-            exit(1)
+            error ("cannot read directory '%s'" % directory)
         if not os.access(directory, os.W_OK) :
-            print "cannot write directory '%s'" % directory
-            exit(1)
+            error ("cannot write directory '%s'" % directory)
             
 if __name__ == '__main__' :
     if len(sys.argv) > 1 and sys.argv[1] == '-d' :
         daemonize = True
+    log_options = (0 if daemonize else syslog.LOG_PERROR) | syslog.LOG_PID 
+    log_facility = syslog.LOG_DAEMON if daemonize else syslog.LOG_USER
+    syslog.openlog(LOG_IDENT, logoption=log_options, facility=log_facility)
     check_dirs ()
     if daemonize :
         # lockfile support seems to be screwed up
