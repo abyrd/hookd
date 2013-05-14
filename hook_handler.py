@@ -7,16 +7,20 @@ import Queue, threading, syslog, subprocess, os
 # debian package python-daemon
 import daemon, daemon.pidlockfile, signal
 
+# NOTE github has a "test hook" button, see https://github.com/abyrd/hooktest/settings/hooks
+
 PORT = 8888
-BASE_DIR = '/home/abyrd/'
+BASE_DIR = '/var/opt/githook/'
+WORK_DIR = BASE_DIR
+LOG_DIR = BASE_DIR
 N_WORKER_THREADS = 2
 WORK_SCRIPT = ''
-LOG_IDENT = 'otphook'
+LOG_IDENT = 'githook'
 
 # global state used by all threads
-# http://docs.python.org/2/library/threading.html#module-threading (Condition Objects)
+# http://docs.python.org/2/library/threading.html#module-threading (Condition/Event Objects)
 shutdown = threading.Event()
-q = Queue.Queue(100)
+q = Queue.Queue() # unbounded queue
 qlock = threading.Condition()
 log_lock = threading.Lock()
 
@@ -40,7 +44,7 @@ class WorkerThread (threading.Thread) :
         try :
             os.chdir (self.dir)
         except :
-            info ('thread %s workspace directory does not exist, creating' % self.threadID)
+            info ('thread %s workspace directory does not exist, creating %s' % (self.threadID, self.dir))
             os.mkdir (self.dir)
             os.chdir (self.dir)
     def run (self) :
@@ -167,15 +171,31 @@ def main() :
     except Exception as e:
         info ('Server failed: %s' % e)
     terminate()
-        
+
+def check_dirs () :
+    for directory in [BASE_DIR, WORK_DIR, LOG_DIR] :
+        if not os.path.isdir(directory) :
+            print "directory '%s' does not exist" % directory
+            exit(1)
+        if not os.path.isdir(directory) :
+            print "file '%s' is not a directory" % directory
+            exit(1)
+        if not os.access(directory, os.R_OK) :
+            print "cannot read directory %'s'" % directory
+            exit(1)
+        if not os.access(directory, os.W_OK) :
+            print "cannot write directory '%s'" % directory
+            exit(1)
+            
 if __name__ == '__main__' :
     if len(sys.argv) > 1 and sys.argv[1] == '-d' :
         daemonize = True
+    check_dirs ()
     if daemonize :
         # lockfile support seems to be screwed up
         # does not prevent multiple copies running
         # pidfile=daemon.pidlockfile.PIDLockFile('/var/run/githook.pid'),
-        context = daemon.DaemonContext(working_directory = '/var/githook')
+        context = daemon.DaemonContext(working_directory = WORK_DIR)
         with context :
             main()
     else :
