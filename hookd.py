@@ -67,7 +67,7 @@ class WorkerThread (threading.Thread) :
                 break
             else :
                 work_unit = q.get()
-                info ('thread %d got work unit %s' % (self.threadID, work_unit))
+                info ('%s: got work unit %s' % (self.name, work_unit))
                 qlock.release()
                 self.do_work (work_unit)
                 # print self.name, 'got', commit_sha1
@@ -76,23 +76,23 @@ class WorkerThread (threading.Thread) :
             cwd = self.repo_dir
         if not isinstance(cmd, list) :
             cmd = cmd.split()
-        info ("calling '%s'" % cmd)
+        info ("%s: calling '%s'" % (self.name, cmd))
         result = subprocess.call( cmd, stdout=self.log, stderr=self.log, cwd=cwd )
-        info ("result of '%s' was %s" % (cmd, 'OK' if result == 0 else 'FAIL'))
+        info ("%s: result of '%s' was %s" % (self.name, cmd, 'OK' if result == 0 else 'FAIL'))
         #if result != 0 :
         #    throw X
     def do_work (self, work_unit) :
         repo_name, repo_url, head_commit = work_unit
         self.repo_dir = os.path.join(self.dir, repo_name)
+        self.log = open (os.path.join(LOG_DIR, '%s_build_%s_%s.log' % (self.name, repo_name, head_commit)), 'w')
         try :
             os.chdir (self.repo_dir)
         except :
             self.call (['git', 'clone', repo_url, repo_name], cwd=self.dir)
-        self.log = open (os.path.join(LOG_DIR, 'build_log_' + head_commit), 'w')
-        self.call ('git fetch', repo_dir)
-        self.call ('git clean -f', repo_dir)
-        self.call ('git checkout ' + head_commit, repo_dir)
-        self.call( 'mvn clean package', repo_dir)
+        self.call ('git fetch')
+        self.call ('git clean -f')
+        self.call ('git checkout ' + head_commit)
+        self.call( 'mvn clean package')
         self.log.close()
         
 # from https://github.com/abyrd/hooktest/settings/hooks
@@ -140,7 +140,6 @@ class HookHandler(BaseHTTPRequestHandler):
         syslog.syslog(syslog.LOG_ERR, fmt % args)
         log_lock.release()
 
-daemonize = False
 server=None
 workerThreads = []
 def terminate(status=0) :
@@ -158,6 +157,7 @@ def terminate(status=0) :
     syslog.closelog()
     sys.exit(status)
 
+daemonize = False
 def main() :  
     for thread_id in range(N_WORKER_THREADS) :
         thread = WorkerThread(thread_id)
