@@ -39,7 +39,7 @@ class WorkerThread (threading.Thread) :
         threading.Thread.__init__(self)
         self.threadID = thread_id
         self.name = 'thread %d' % thread_id
-        self.dir = BASE_DIR + '/thread_%d_workspace' % self.threadID
+        self.dir = os.path.join(BASE_DIR, 'thread_%d_workspace' % self.threadID)
         # note: cannot change current directory per thread. multiprocessing?
         try :
             os.chdir (self.dir)
@@ -71,7 +71,7 @@ class WorkerThread (threading.Thread) :
         info ("result of '%s' was %s" % (cmd, 'OK' if result == 0 else 'FAIL'))
     def do_work (self, work_unit) :
         repo_name, repo_url, head_commit = work_unit
-        repo_dir = '%s/%s' % (self.dir, repo_name)
+        repo_dir = os.path.join(self.dir, repo_name)
         try :
             os.chdir (repo_dir)
         except :
