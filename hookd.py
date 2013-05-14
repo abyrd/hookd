@@ -16,6 +16,8 @@ LOG_DIR = BASE_DIR
 N_WORKER_THREADS = 2
 WORK_SCRIPT = ''
 LOG_IDENT = 'hookd'
+ACCEPT_REPOS = ['hookd']
+ACCEPT_ACCOUNTS = ['abyrd', 'openplans']
 
 # global state used by all threads
 # http://docs.python.org/2/library/threading.html#module-threading (Condition/Event Objects)
@@ -39,6 +41,21 @@ def debug (msg) :
     log_lock.acquire()
     syslog.syslog(syslog.LOG_DEBUG, msg)
     log_lock.release()
+
+def check_url (url) :
+    parts = url.split('/')
+    if len(parts) != 5 :
+        info ('received malformed repository URL: %s' % url)
+        return False
+    repo = parts[-1]
+    acct = parts[-2]
+    if not repo in ACCEPT_REPOS :
+        info ('rejected repository name %s from URL %s' % (repo, url))
+        return False
+    if not acct in ACCEPT_ACCOUNTS :
+        info ('rejected repository name %s from URL %s' % (acct, url))
+        return False
+    return True
 
 class FailedCall (Exception) :
     def __init__ (self, code) :
@@ -136,10 +153,13 @@ class HookHandler(BaseHTTPRequestHandler):
             info ('notification: commit to repository %s at %s' % (repo_name, repo_url))
             info ('notification: head commit sha1 is %s' % head_commit)
             self.wfile.write('thank you for your patronage.\n')
-            qlock.acquire()
-            q.put( (repo_name, repo_url, head_commit) )
-            qlock.notify(1) # wake up one thread
-            qlock.release() # release the lock so the thread can grab it
+            if check_url(repo_url) :
+                qlock.acquire()
+                q.put( (repo_name, repo_url, head_commit) )
+                qlock.notify(1) # wake up one thread
+                qlock.release() # release the lock so the thread can grab it
+            else :
+                self.wfile.write('why u send me junk?\n')
         except Exception as e:
             self.wfile.write('i failed to understand your message.\n')
             traceback.print_exc()
